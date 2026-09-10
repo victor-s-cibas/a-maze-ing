@@ -1,0 +1,7 @@
+# Configuration File
+WIDTH=30
+HEIGHT=20
+ENTRY=0,0
+EXIT=29,19
+OUTPUT_FILE=maze.txt
+PERFECT=False
