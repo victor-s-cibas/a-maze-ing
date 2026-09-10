@@ -3,8 +3,7 @@
 # Roadmap: Projeto A-Maze-ing
 
 Este documento apresenta a análise completa do estado atual do projeto e o roadmap
-detalhado de tudo que falta implementar, com base no **subject** (`maze.pdf`) e na
-**régua de avaliação** (`regua.pdf`).
+detalhado de tudo que falta implementar.
 
 > **Legenda de prioridade:**
 > 🔴 **CRÍTICO** — Sem isso o projeto é nota 0 ou incompleto
