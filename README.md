@@ -1,4 +1,5 @@
 *This project was built as part of the 42 curriculum by vicdos-s and kasoares.*
+
 # A-Maze-ing
 
 Projeto desenvolvido por `vicdos-s` e `kasoares`.
@@ -79,7 +80,93 @@ ENTRY=0,0
 EXIT=29,19
 OUTPUT_FILE=maze.txt
 PERFECT=True
+SEED=42
 ```
+
+A chave `SEED` é opcional. Quando ela existe, o programa usa esse valor para tornar a geração determinística.
+
+### Como a seed funciona no código
+
+A seed não "cria um labirinto especial"; ela apenas define o estado inicial do gerador de números aleatórios do Python. O projeto usa a função global `random` da biblioteca padrão.
+
+Em [mazegen/generator.py](mazegen/generator.py), o construtor da classe faz:
+
+```python
+if self.seed is not None:
+    random.seed(self.seed)
+```
+
+E também, dentro de `generate()`, há outra chamada equivalente:
+
+```python
+if self.seed is not None:
+    random.seed(self.seed)
+```
+
+Isso significa que, para a mesma semente e os mesmos parâmetros do labirinto, a sequência de chamadas a `random.choice()` será exatamente a mesma. Como o algoritmo de geração usa `random.choice(unvisited)` para decidir qual direção percorrer, o caminho escolhido em cada passo será idêntico.
+
+Em termos práticos:
+
+- mesma `seed`
+- mesmo `width`, `height`, `entry`, `exit_pos`, `perfect`
+- mesmo algoritmo
+- mesmo ambiente Python
+
+resultam no mesmo labirinto.
+
+A mesma ideia vale para o arquivo de configuração: em [a_maze_ing.py](a_maze_ing.py), o código verifica se existe `SEED` e executa:
+
+```python
+random.seed(int(config["SEED"]))
+```
+
+Assim, toda a geração que vier depois usa a mesma sequência pseudoaleatória.
+
+### Por que funciona
+
+O Python usa um gerador pseudoaleatório determinístico. O estado interno do RNG depende do valor inicial da semente. Se você inicializar o RNG com o mesmo valor, ele produz a mesma sequência de números. Como a geração do labirinto usa essa seqüência para escolher caminhos vazios, o labirinto final também fica igual.
+
+Isso é exatamente o que permite reproduzir um comportamento: o mesmo código com a mesma seed produz a mesma grade.
+
+### Exemplos de reprodução
+
+```python
+from mazegen import MazeGenerator
+
+m1 = MazeGenerator(20, 20, (0, 0), (19, 19), seed=42, perfect=True)
+m1.generate()
+
+m2 = MazeGenerator(20, 20, (0, 0), (19, 19), seed=42, perfect=True)
+m2.generate()
+
+print(m1.get_grid() == m2.get_grid())
+```
+
+A saída será `True`.
+
+Outra forma é pelo arquivo de configuração:
+
+```ini
+WIDTH=20
+HEIGHT=20
+ENTRY=0,0
+EXIT=19,19
+OUTPUT_FILE=maze.txt
+PERFECT=True
+SEED=42
+```
+
+Executando:
+
+```bash
+python3 a_maze_ing.py config.txt
+```
+
+você obterá o mesmo labirinto sempre que usar a mesma configuração e a mesma semente.
+
+### Quando a seed não é usada
+
+Se você remover `seed` ou `SEED`, o programa usa o estado aleatório padrão do Python, que normalmente depende do tempo do sistema. Nesse caso, cada execução gera um labirinto diferente.
 
 ### Chaves obrigatórias
 
@@ -89,6 +176,80 @@ PERFECT=True
 - `EXIT`: coordenada da saída no formato `X,Y`
 - `OUTPUT_FILE`: nome do arquivo em que a grade será exportada
 - `PERFECT`: se o labirinto deve ser perfeito (`True`) ou mais aberto (`False`)
+
+## Sistema de seed e reprodução de labirintos
+
+O gerador aceita um parâmetro opcional chamado `seed` na construção da classe `MazeGenerator`:
+
+```python
+maze = MazeGenerator(
+    width=20,
+    height=20,
+    entry=(0, 0),
+    exit_pos=(19, 19),
+    seed=42,
+    perfect=True,
+)
+```
+
+Quando a semente é informada, o código chama `random.seed(self.seed)` antes da geração do labirinto. O mesmo vale quando a chave `SEED` aparece no arquivo de configuração: o programa executa `random.seed(int(config["SEED"]))` antes de criar o gerador.
+
+Isso faz com que a sequência de escolhas aleatórias do algoritmo de DFS seja determinística para aquela combinação de configuração.
+
+Em outras palavras:
+
+- mesmo `width`, `height`, `entry`, `exit_pos`, `perfect` e `seed`
+- geram o mesmo labirinto
+- para a mesma versão do algoritmo e do ambiente Python
+
+Se você quiser reproduzir exatamente a mesma estrutura, basta reaproveitar os mesmos valores de entrada e a mesma semente.
+
+Exemplo de reprodução:
+
+```python
+from mazegen import MazeGenerator
+
+config = {
+    "width": 20,
+    "height": 20,
+    "entry": (0, 0),
+    "exit_pos": (19, 19),
+    "perfect": True,
+    "seed": 42,
+}
+
+maze_1 = MazeGenerator(**config)
+maze_1.generate()
+
+maze_2 = MazeGenerator(**config)
+maze_2.generate()
+
+print(maze_1.get_grid() == maze_2.get_grid())
+```
+
+Esse código imprime `True` porque ambos os labirintos foram gerados a partir da mesma semente.
+
+Se o objetivo for gerar uma nova configuração aleatória, basta:
+
+- remover o parâmetro `seed`,
+- remover a chave `SEED` do arquivo de configuração, ou
+- usar outro número inteiro
+
+O algoritmo da solução (`solve`) não depende diretamente da seed; ele depende da estrutura do labirinto gerado. Assim, para um mesmo labirinto, o caminho calculado pelo BFS será sempre o mesmo.
+
+Também é possível reproduzir o mesmo labirinto via arquivo de configuração:
+
+```ini
+WIDTH=20
+HEIGHT=20
+ENTRY=0,0
+EXIT=19,19
+OUTPUT_FILE=maze.txt
+PERFECT=True
+SEED=42
+```
+
+Ao rodar `python3 a_maze_ing.py config.txt`, o programa gera o mesmo labirinto sempre que a mesma configuração e a mesma semente forem usadas.
 
 ## Estrutura do projeto
 
@@ -181,6 +342,8 @@ maze.generate()
 solution = maze.solve((0, 0), (19, 14))
 print(f"Solução: {solution}")
 ```
+
+Como a geração usa `random.choice()` durante o DFS, usar a mesma semente gera a mesma sequência de decisões e, portanto, o mesmo labirinto. Isso permite reproduzir exatamente um comportamento para fins de depuração, teste ou comparação visual.
 
 ### Exportação da grade para arquivo
 
