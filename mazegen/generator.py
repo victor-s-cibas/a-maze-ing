@@ -68,6 +68,41 @@ class MazeGenerator:
         """Retorna a matriz do labirinto em inteiros (bitmask)."""
         return self.grid
 
+    def solve(self, entry: tuple[int,int], exit_pos: tuple[int,int]) -> str:
+        from collections import deque
+
+        queue = deque ([entry])
+        visited = {entry}
+        came_from = {}
+
+        directions = {"N": ((0, -1), NORTH), "S": ((0, 1), SOUTH), "E": ((1, 0), EAST), "W": ((-1, 0), WEST)}
+
+        found = False
+        while queue:
+            current = queue.popleft()
+            if current == exit_pos:
+                found = True
+                break
+
+            cx, cy = current
+            for direction, ((dx, dy), bit) in directions.items():
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < self.width and 0 <= ny < self.height:
+                    if self.grid[cy][cx] & bit == 0 and (nx, ny) not in visited:
+                        visited.add((nx, ny))
+                        came_from[(nx, ny)] = (current, direction)
+                        queue.append((nx, ny))
+
+        path = []
+        if found:
+            node = exit_pos
+            while node != entry:
+                prev, direction = came_from[node]
+                path.append(direction)
+                node = prev
+            path.reverse()
+        return "".join(path)
+
     def get_solution(self) -> list[tuple[int, int]]:
         """Retorna o caminho da solução como lista de coordenadas (x, y)."""
         return self.solution_path
