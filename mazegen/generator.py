@@ -49,6 +49,9 @@ class MazeGenerator:
             [15 for _ in range(self.width)] for _ in range(self.height)
         ]
         self.solution_path: list[tuple[int, int]] = []
+        self.pattern_cells: set[tuple[int, int]] = set()
+        self.E = EAST
+        self.S = SOUTH
 
     def _validate_inputs(self) -> None:
         """Valida se as dimensões e coordenadas são válidas."""
@@ -133,6 +136,7 @@ class MazeGenerator:
                 if pattern[r][c] == 1:
                     # Trava a célula com valor 15 (todas as paredes fechadas)
                     self.grid[start_y + r][start_x + c] = 15
+                    self.pattern_cells.add((start_x + c, start_y + r))
 
     def generate(self) -> None:
         """Gera a estrutura do labirinto usando o algoritmo DFS."""
