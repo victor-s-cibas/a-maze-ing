@@ -1,4 +1,3 @@
-import os
 import random
 import sys
 import subprocess
@@ -43,29 +42,29 @@ def main() -> None:
         if width <= 0 or height <= 0:
             raise ValueError("Width and height must be positive.")
 
-        entry_coords = parse_tuple(config["ENTRY"])
-        exit_coords = parse_tuple(config["EXIT"])
+        entry = parse_tuple(config["ENTRY"])
+        exit_pos = parse_tuple(config["EXIT"])
         is_perfect = config.get("PERFECT", "False").lower() == "true"
 
         if "SEED" in config:
             random.seed(int(config["SEED"]))
 
-        generator = MazeGenerator(width, height, entry, exit_pos, is_perfect)
+        generator = MazeGenerator(width=width, height=height, entry=entry, exit_pos=exit_pos, perfect=is_perfect)
         generator.generate()
-        solution = generator.solve(entry_coords, exit_coords) or ""
+        solution = generator.solve(entry, exit_pos) or ""
         export_maze(generator, config, solution)
 
         show_path = False
         theme_idx = 1
 
         while True:
-            subprocess.run("clear" if os.name == "posix" else "cls")
+            subprocess.run("clear")
             render_ascii(
                 generator=generator,
                 show_path=show_path,
                 path=solution,
-                start=entry_coords,
-                end=exit_coords,
+                start=entry,
+                end=exit_pos,
                 theme=THEMES[theme_idx],
             )
 
@@ -79,9 +78,9 @@ def main() -> None:
 
             if choice == "1":
                 random.seed()
-                generator = MazeGenerator(width, height, is_perfect)
+                generator = MazeGenerator(width=width, height=height, entry=entry, exit_pos=exit_pos, perfect=is_perfect)
                 generator.generate()
-                solution = generator.solve(entry_coords, exit_coords) or ""
+                solution = generator.solve(entry, exit_pos) or ""
                 export_maze(generator, config, solution)
 
             elif choice == "2":
