@@ -1,6 +1,7 @@
 import random
 from collections import deque
-from typing import List, Tuple, Optional, Set, Dict
+from typing import Tuple, Optional, Set
+
 
 class MazeGenerator:
     N, E, S, W = 1, 2, 4, 8
