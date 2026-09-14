@@ -1,13 +1,14 @@
-from typing import Tuple, List, Dict, Set
+from typing import Dict, List, Set, Tuple
+
 from mazegen import MazeGenerator
 
-RESET = "\033[0m"
-BOLD = "\033[1m"
-EMPTY_BG = "\033[48;2;12;12;16m"
-START_STYLE = "\033[1;38;2;0;255;220m\033[48;2;0;60;50m"
-END_STYLE = "\033[1;38;2;255;50;150m\033[48;2;70;10;35m"
-PATTERN_BG = "\033[48;2;242;226;190m"
-PIPE_CHARS = "·╶╴─╷╭╮┬╵╰╯┴│├┤┼"
+RESET: str = "\033[0m"
+BOLD: str = "\033[1m"
+EMPTY_BG: str = "\033[48;2;12;12;16m"
+START_STYLE: str = "\033[1;38;2;0;255;220m\033[48;2;0;60;50m"
+END_STYLE: str = "\033[1;38;2;255;50;150m\033[48;2;70;10;35m"
+PATTERN_BG: str = "\033[48;2;242;226;190m"
+PIPE_CHARS: str = "·╶╴─╷╭╮┬╵╰╯┴│├┤┼"
 
 COLOR_PALETTE: List[Tuple[int, int, int]] = [
     (0, 255, 220),
@@ -31,7 +32,9 @@ def _build_path_coords(
 ) -> List[Tuple[int, int]]:
     """Expand path directions into ASCII grid coordinate list."""
     current_x, current_y = start
-    coords: List[Tuple[int, int]] = [(current_y * 2 + 1, current_x * 2 + 1)]
+    start_y_coord = current_y * 2 + 1
+    start_x_coord = current_x * 2 + 1
+    coords: List[Tuple[int, int]] = [(start_y_coord, start_x_coord)]
 
     for step in path:
         if step == "N":
@@ -47,7 +50,6 @@ def _build_path_coords(
             coords.append((current_y * 2 + 1, current_x * 2))
             current_x -= 1
 
-        # Add the center of the newly reached cell
         coords.append((current_y * 2 + 1, current_x * 2 + 1))
 
     return coords
@@ -91,22 +93,31 @@ def get_path_map(
     coords = _build_path_coords(start, path)
     total_steps = len(coords)
 
-    return {
-        cell: _get_gradient_ansi(index, total_steps)
-        for index, cell in enumerate(coords)
-    }
+    path_dict: Dict[Tuple[int, int], str] = {}
+    for index, cell in enumerate(coords):
+        gradient = _get_gradient_ansi(index, total_steps)
+        path_dict[cell] = gradient
+
+    return path_dict
 
 
 def _build_render_grid(generator: MazeGenerator) -> List[List[bool]]:
     """Construct boolean grid representing walls (True) and paths (False)."""
     grid_height = generator.height * 2 + 1
     grid_width = generator.width * 2 + 1
-    render_grid = [[True] * grid_width for _ in range(grid_height)]
+
+    render_grid: List[List[bool]] = []
+    for _ in range(grid_height):
+        row: List[bool] = []
+        for _ in range(grid_width):
+            row.append(True)
+        render_grid.append(row)
 
     for y in range(generator.height):
         for x in range(generator.width):
             cell = generator.grid[y][x]
-            render_y, render_x = y * 2 + 1, x * 2 + 1
+            render_y = y * 2 + 1
+            render_x = x * 2 + 1
 
             render_grid[render_y][render_x] = False
 
@@ -120,11 +131,13 @@ def _build_render_grid(generator: MazeGenerator) -> List[List[bool]]:
 
 def _get_pattern_cells(generator: MazeGenerator) -> Set[Tuple[int, int]]:
     """Expand pattern cells into full grid coordinate set."""
-    base_pattern = {
-        (pat_y * 2 + 1, pat_x * 2 + 1)
-        for pat_x, pat_y in generator.pattern_cells
-    }
-    pattern_cells = set(base_pattern)
+    base_pattern: Set[Tuple[int, int]] = set()
+    for pat_x, pat_y in generator.pattern_cells:
+        cell_y = pat_y * 2 + 1
+        cell_x = pat_x * 2 + 1
+        base_pattern.add((cell_y, cell_x))
+
+    pattern_cells: Set[Tuple[int, int]] = set(base_pattern)
 
     for y, x in base_pattern:
         if (y, x + 2) in base_pattern:
@@ -139,14 +152,21 @@ def get_pipe_char(
     up: bool, down: bool, left: bool, right: bool
 ) -> Tuple[str, str]:
     """Return box drawing characters for wall connectivity."""
-    # Use binary flags to build an index: Up(8) | Down(4) | Left(2) | Right(1)
-    index = (
-        (int(up) << 3)
-        | (int(down) << 2)
-        | (int(left) << 1)
-        | int(right)
-    )
-    horizontal_fill = "─" if right else " "
+    index = 0
+    if up:
+        index += 8
+    if down:
+        index += 4
+    if left:
+        index += 2
+    if right:
+        index += 1
+
+    if right:
+        horizontal_fill = "─"
+    else:
+        horizontal_fill = " "
+
     return PIPE_CHARS[index], horizontal_fill
 
 
@@ -173,24 +193,43 @@ def _render_cell(
 
     if pos in path_map:
         has_up = pos_y > 0 and (pos_y - 1, pos_x) in path_map
-        has_down = pos_y < grid_height - 1 and (pos_y + 1, pos_x) in path_map
+        has_down = (
+            pos_y < grid_height - 1 and (pos_y + 1, pos_x) in path_map
+        )
         has_left = pos_x > 0 and (pos_y, pos_x - 1) in path_map
-        has_right = pos_x < grid_width - 1 and (pos_y, pos_x + 1) in path_map
+        has_right = (
+            pos_x < grid_width - 1 and (pos_y, pos_x + 1) in path_map
+        )
 
-        char1, char2 = get_pipe_char(has_up, has_down, has_left, has_right)
+        char1, char2 = get_pipe_char(
+            has_up, has_down, has_left, has_right
+        )
         return f"{path_map[pos]}{BOLD}{char1}{char2}{RESET}"
 
     if render_grid[pos_y][pos_x]:
         has_up = pos_y > 0 and render_grid[pos_y - 1][pos_x]
-        has_down = pos_y < grid_height - 1 and render_grid[pos_y + 1][pos_x]
+        has_down = (
+            pos_y < grid_height - 1 and render_grid[pos_y + 1][pos_x]
+        )
         has_left = pos_x > 0 and render_grid[pos_y][pos_x - 1]
-        has_right = pos_x < grid_width - 1 and render_grid[pos_y][pos_x + 1]
+        has_right = (
+            pos_x < grid_width - 1 and render_grid[pos_y][pos_x + 1]
+        )
 
-        char1, char2 = get_pipe_char(has_up, has_down, has_left, has_right)
-        cell_bg = PATTERN_BG if pos in pattern_cells else wall_bg
+        char1, char2 = get_pipe_char(
+            has_up, has_down, has_left, has_right
+        )
+        if pos in pattern_cells:
+            cell_bg = PATTERN_BG
+        else:
+            cell_bg = wall_bg
         return f"{wall_fg}{cell_bg}{BOLD}{char1}{char2}{RESET}"
 
-    cell_bg = PATTERN_BG if pos in pattern_cells else EMPTY_BG
+    if pos in pattern_cells:
+        cell_bg = PATTERN_BG
+    else:
+        cell_bg = EMPTY_BG
+
     return f"{cell_bg}  {RESET}"
 
 
@@ -203,16 +242,24 @@ def render_ascii(
     theme: Tuple[str, str],
 ) -> None:
     """Render maze ASCII output to standard output."""
-    path_map = get_path_map(start, path) if show_path and path else {}
+    if show_path and path:
+        path_map = get_path_map(start, path)
+    else:
+        path_map = {}
+
     render_grid = _build_render_grid(generator)
     pattern_cells = _get_pattern_cells(generator)
 
     start_pos = (start[1] * 2 + 1, start[0] * 2 + 1)
     end_pos = (end[1] * 2 + 1, end[0] * 2 + 1)
 
-    for y in range(len(render_grid)):
-        row_cells = [
-            _render_cell(
+    grid_height = len(render_grid)
+    grid_width = len(render_grid[0])
+
+    for y in range(grid_height):
+        row_cells: List[str] = []
+        for x in range(grid_width):
+            cell_str = _render_cell(
                 pos=(y, x),
                 start_pos=start_pos,
                 end_pos=end_pos,
@@ -221,6 +268,5 @@ def render_ascii(
                 pattern_cells=pattern_cells,
                 theme=theme,
             )
-            for x in range(len(render_grid[0]))
-        ]
+            row_cells.append(cell_str)
         print("".join(row_cells))

@@ -1,18 +1,20 @@
+from collections import deque
 import random
+from typing import Deque, Dict, List, Optional, Set, Tuple
 
-NORTH: int = 1  # 0001
-EAST: int = 2   # 0010
-SOUTH: int = 4  # 0100
-WEST: int = 8   # 1000
+NORTH: int = 1
+EAST: int = 2
+SOUTH: int = 4
+WEST: int = 8
 
-OPPOSITE: dict[int, int] = {
+OPPOSITE: Dict[int, int] = {
     NORTH: SOUTH,
     SOUTH: NORTH,
     EAST: WEST,
     WEST: EAST,
 }
 
-MOVE: dict[int, tuple[int, int]] = {
+MOVE: Dict[int, Tuple[int, int]] = {
     NORTH: (0, -1),
     SOUTH: (0, 1),
     EAST: (1, 0),
@@ -21,22 +23,22 @@ MOVE: dict[int, tuple[int, int]] = {
 
 
 class MazeGenerator:
-    """Classe responsável por gerar o labirinto e calcular sua solução."""
+    """Class responsible for generating the maze and solving it."""
 
     def __init__(
         self,
         width: int,
         height: int,
-        entry: tuple[int, int],
-        exit_pos: tuple[int, int],
-        seed: int | None = None,
+        entry: Tuple[int, int],
+        exit_pos: Tuple[int, int],
+        seed: Optional[int] = None,
         perfect: bool = True,
     ) -> None:
         self.width: int = width
         self.height: int = height
-        self.entry: tuple[int, int] = entry
-        self.exit_pos: tuple[int, int] = exit_pos
-        self.seed: int | None = seed
+        self.entry: Tuple[int, int] = entry
+        self.exit_pos: Tuple[int, int] = exit_pos
+        self.seed: Optional[int] = seed
         self.perfect: bool = perfect
 
         self._validate_inputs()
@@ -44,43 +46,53 @@ class MazeGenerator:
         if self.seed is not None:
             random.seed(self.seed)
 
-        # Grade inicializada com todas as paredes fechadas (15 / 0xF)
-        self.grid: list[list[int]] = [
-            [15 for _ in range(self.width)] for _ in range(self.height)
-        ]
-        self.solution_path: list[tuple[int, int]] = []
-        self.pattern_cells: set[tuple[int, int]] = set()
-        self.E = EAST
-        self.S = SOUTH
+        self.grid: List[List[int]] = []
+        for _ in range(self.height):
+            row: List[int] = []
+            for _ in range(self.width):
+                row.append(15)
+            self.grid.append(row)
+
+        self.solution_path: List[Tuple[int, int]] = []
+        self.pattern_cells: Set[Tuple[int, int]] = set()
+        self.E: int = EAST
+        self.S: int = SOUTH
 
     def _validate_inputs(self) -> None:
-        """Valida se as dimensões e coordenadas são válidas."""
+        """Validate dimensions and coordinate bounds."""
         if self.width <= 0 or self.height <= 0:
-            raise ValueError("Width e Height devem ser inteiros positivos.")
+            raise ValueError("Width and Height must be positive integers.")
 
         ex, ey = self.entry
         sx, sy = self.exit_pos
-        if not (0 <= ex < self.width and 0 <= ey < self.height):
-            raise ValueError("ENTRY está fora dos limites do labirinto.")
-        if not (0 <= sx < self.width and 0 <= sy < self.height):
-            raise ValueError("EXIT está fora dos limites do labirinto.")
-        if self.entry == self.exit_pos:
-            raise ValueError("ENTRY e EXIT devem ser diferentes.")
 
-    def get_grid(self) -> list[list[int]]:
-        """Retorna a matriz do labirinto em inteiros (bitmask)."""
+        if not (0 <= ex < self.width and 0 <= ey < self.height):
+            raise ValueError("ENTRY coordinate is outside maze bounds.")
+
+        if not (0 <= sx < self.width and 0 <= sy < self.height):
+            raise ValueError("EXIT coordinate is outside maze bounds.")
+
+        if self.entry == self.exit_pos:
+            raise ValueError("ENTRY and EXIT coordinates must be different.")
+
+    def get_grid(self) -> List[List[int]]:
+        """Return the maze grid representation."""
         return self.grid
 
-    def solve(self, entry: tuple[int,int], exit_pos: tuple[int,int]) -> str:
-        from collections import deque
+    def solve(self, entry: Tuple[int, int], exit_pos: Tuple[int, int]) -> str:
+        """Find the shortest path using Breadth-First Search."""
+        queue: Deque[Tuple[int, int]] = deque([entry])
+        visited: Set[Tuple[int, int]] = {entry}
+        came_from: Dict[Tuple[int, int], Tuple[Tuple[int, int], str]] = {}
 
-        queue = deque ([entry])
-        visited = {entry}
-        came_from = {}
+        directions: Dict[str, Tuple[Tuple[int, int], int]] = {
+            "N": ((0, -1), NORTH),
+            "S": ((0, 1), SOUTH),
+            "E": ((1, 0), EAST),
+            "W": ((-1, 0), WEST),
+        }
 
-        directions = {"N": ((0, -1), NORTH), "S": ((0, 1), SOUTH), "E": ((1, 0), EAST), "W": ((-1, 0), WEST)}
-
-        found = False
+        found: bool = False
         while queue:
             current = queue.popleft()
             if current == exit_pos:
@@ -88,34 +100,38 @@ class MazeGenerator:
                 break
 
             cx, cy = current
-            for direction, ((dx, dy), bit) in directions.items():
+            for direction, info in directions.items():
+                offset, bit = info
+                dx, dy = offset
                 nx, ny = cx + dx, cy + dy
+
                 if 0 <= nx < self.width and 0 <= ny < self.height:
-                    if self.grid[cy][cx] & bit == 0 and (nx, ny) not in visited:
+                    is_open = (self.grid[cy][cx] & bit) == 0
+                    if is_open and (nx, ny) not in visited:
                         visited.add((nx, ny))
                         came_from[(nx, ny)] = (current, direction)
                         queue.append((nx, ny))
 
-        path = []
+        path_chars: List[str] = []
         if found:
             node = exit_pos
             while node != entry:
-                prev, direction = came_from[node]
-                path.append(direction)
+                prev, step_dir = came_from[node]
+                path_chars.append(step_dir)
                 node = prev
-            path.reverse()
-        return "".join(path)
+            path_chars.reverse()
 
-    def get_solution(self) -> list[tuple[int, int]]:
-        """Retorna o caminho da solução como lista de coordenadas (x, y)."""
+        return "".join(path_chars)
+
+    def get_solution(self) -> List[Tuple[int, int]]:
+        """Return solution path coordinates."""
         return self.solution_path
 
     def _apply_pattern_42(self) -> None:
-        """Aplica a máscara do número 42 com células fechadas no centro do labirinto."""
-        # Matriz binária do padrão 42 (5 linhas x 7 colunas)
-        pattern: list[list[int]] = [
-            [1, 0, 1, 0, 1, 1, 1],
-            [1, 0, 1, 0, 0, 0, 1],
+        """Apply closed cell '42' pattern mask at center of maze."""
+        pattern: List[List[int]] = [
+            [1, 0, 0, 0, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 1],
             [1, 1, 1, 0, 1, 1, 1],
             [0, 0, 1, 0, 1, 0, 0],
             [0, 0, 1, 0, 1, 1, 1],
@@ -123,9 +139,8 @@ class MazeGenerator:
         pat_h = len(pattern)
         pat_w = len(pattern[0])
 
-        # Se o mapa for menor do que o padrão + bordas, emite aviso e ignora
         if self.width < pat_w + 2 or self.height < pat_h + 2:
-            print("Warning: Too small maze to design '42' pattern.")
+            print("Warning: Maze too small to render '42' pattern.")
             return
 
         start_x = (self.width - pat_w) // 2
@@ -134,30 +149,29 @@ class MazeGenerator:
         for r in range(pat_h):
             for c in range(pat_w):
                 if pattern[r][c] == 1:
-                    # Trava a célula com valor 15 (todas as paredes fechadas)
-                    self.grid[start_y + r][start_x + c] = 15
-                    self.pattern_cells.add((start_x + c, start_y + r))
+                    cell_x = start_x + c
+                    cell_y = start_y + r
+                    self.grid[cell_y][cell_x] = 15
+                    self.pattern_cells.add((cell_x, cell_y))
 
     def generate(self) -> None:
-        """Gera a estrutura do labirinto usando o algoritmo DFS."""
+        """Generate maze pathways using DFS backtracking."""
         if self.seed is not None:
             random.seed(self.seed)
 
         self._apply_pattern_42()
 
-        # Pilha para o DFS e conjunto de células já visitadas
-        stack: list[tuple[int, int]] = [self.entry]
-        visited: set[tuple[int, int]] = {self.entry}
+        stack: List[Tuple[int, int]] = [self.entry]
+        visited: Set[Tuple[int, int]] = {self.entry}
 
-        # Marca células do "42" como visitadas para o gerador não passar por cima delas
         pat_h, pat_w = 5, 7
         if self.width >= pat_w + 2 and self.height >= pat_h + 2:
             start_x = (self.width - pat_w) // 2
             start_y = (self.height - pat_h) // 2
             pattern = [
-                [1, 0, 1, 0, 1, 1, 1],
-                [1, 0, 1, 0, 0, 0, 1],
-                [1, 1, 1, 0, 1, 1, 1],
+                [1, 0, 0, 0, 1, 1, 1],
+                [1, 0, 0, 0, 0, 0, 1],
+                [1, 1, 0, 0, 1, 1, 1],
                 [0, 0, 1, 0, 1, 0, 0],
                 [0, 0, 1, 0, 1, 1, 1],
             ]
@@ -168,17 +182,17 @@ class MazeGenerator:
 
         while stack:
             cx, cy = stack[-1]
-            unvisited_neighbors: list[tuple[int, tuple[int, int]]] = []
+            unvisited: List[Tuple[int, Tuple[int, int]]] = []
 
-            for direction, (dx, dy) in MOVE.items():
+            for direction, offset in MOVE.items():
+                dx, dy = offset
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < self.width and 0 <= ny < self.height:
                     if (nx, ny) not in visited:
-                        unvisited_neighbors.append((direction, (nx, ny)))
+                        unvisited.append((direction, (nx, ny)))
 
-            if unvisited_neighbors:
-                direction, (nx, ny) = random.choice(unvisited_neighbors)
-                # Remove a parede entre a célula atual e o vizinho escolhido
+            if unvisited:
+                direction, (nx, ny) = random.choice(unvisited)
                 self.grid[cy][cx] &= ~direction
                 self.grid[ny][nx] &= ~OPPOSITE[direction]
 

@@ -1,5 +1,5 @@
 import sys
-from typing import Tuple, Dict
+from typing import Dict, List, Tuple
 
 
 def parse_config(filename: str) -> Dict[str, str]:
@@ -23,8 +23,13 @@ def parse_config(filename: str) -> Dict[str, str]:
         print(f"Error parsing configuration file: {error}")
         sys.exit(1)
 
-    required_keys = [
-        "WIDTH", "HEIGHT", "ENTRY", "EXIT", "OUTPUT_FILE", "PERFECT",
+    required_keys: List[str] = [
+        "WIDTH",
+        "HEIGHT",
+        "ENTRY",
+        "EXIT",
+        "OUTPUT_FILE",
+        "PERFECT",
     ]
 
     for key in required_keys:
@@ -38,7 +43,11 @@ def parse_config(filename: str) -> Dict[str, str]:
 def parse_tuple(val: str) -> Tuple[int, int]:
     """Parse a coordinate tuple from a string like 'X,Y'."""
     try:
-        x_str, y_str = val.split(",")
+        parts = val.split(",")
+        if len(parts) != 2:
+            raise ValueError("Tuple must have exactly two values.")
+        x_str = parts[0].strip()
+        y_str = parts[1].strip()
         return int(x_str), int(y_str)
     except Exception as error:
         raise ValueError(f"Invalid coordinate format '{val}'.") from error

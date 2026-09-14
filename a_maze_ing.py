@@ -1,11 +1,10 @@
 import random
-import sys
 import subprocess
-from typing import Dict
-from parse import parse_tuple, parse_config
+import sys
+from typing import Dict, List
 from mazegen import MazeGenerator
-from render import render_ascii, THEMES
-
+from parse import parse_config, parse_tuple
+from render import THEMES, render_ascii
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -14,11 +13,14 @@ BOLD = "\033[1m"
 def export_maze(
     generator: MazeGenerator, config: Dict[str, str], path: str
 ) -> None:
-    """Export the generated maze to the target output file."""
+    """Export generated maze to target output file."""
     try:
         with open(config["OUTPUT_FILE"], "w", encoding="utf-8") as file_obj:
             for row in generator.grid:
-                hex_row = "".join(f"{cell:x}" for cell in row)
+                hex_chars: List[str] = []
+                for cell in row:
+                    hex_chars.append(f"{cell:x}")
+                hex_row = "".join(hex_chars)
                 file_obj.write(f"{hex_row}\n")
 
             entry_str = config["ENTRY"]
@@ -49,7 +51,13 @@ def main() -> None:
         if "SEED" in config:
             random.seed(int(config["SEED"]))
 
-        generator = MazeGenerator(width=width, height=height, entry=entry, exit_pos=exit_pos, perfect=is_perfect)
+        generator = MazeGenerator(
+            width=width,
+            height=height,
+            entry=entry,
+            exit_pos=exit_pos,
+            perfect=is_perfect,
+        )
         generator.generate()
         solution = generator.solve(entry, exit_pos) or ""
         export_maze(generator, config, solution)
@@ -78,7 +86,13 @@ def main() -> None:
 
             if choice == "1":
                 random.seed()
-                generator = MazeGenerator(width=width, height=height, entry=entry, exit_pos=exit_pos, perfect=is_perfect)
+                generator = MazeGenerator(
+                    width=width,
+                    height=height,
+                    entry=entry,
+                    exit_pos=exit_pos,
+                    perfect=is_perfect,
+                )
                 generator.generate()
                 solution = generator.solve(entry, exit_pos) or ""
                 export_maze(generator, config, solution)
