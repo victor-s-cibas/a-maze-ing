@@ -50,7 +50,7 @@ def main() -> None:
         if "SEED" in config:
             random.seed(int(config["SEED"]))
 
-        generator = MazeGenerator(width, height, is_perfect)
+        generator = MazeGenerator(width, height, entry, exit_pos, is_perfect)
         generator.generate()
         solution = generator.solve(entry_coords, exit_coords) or ""
         export_maze(generator, config, solution)
